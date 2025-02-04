@@ -1,6 +1,3 @@
-from sympy import prime
-
-
 class Person:
     def __init__(self, name, lastname, age):
         self.name = name
