@@ -4,7 +4,8 @@ def with_index(iterable, index=0):
         index += 1
 
 
-generator = with_index(["banana", "apple", "grapes"], 5)
-print(next(generator))
-print(next(generator))
-print(next(generator))
+if __name__ == '__main__':
+    generator = with_index(["banana", "apple", "grapes"], 5)
+    print(next(generator))
+    print(next(generator))
+    print(next(generator))

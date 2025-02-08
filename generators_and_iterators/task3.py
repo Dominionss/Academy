@@ -27,13 +27,14 @@ class MyList:
         return f"{self.data}"  # String representation
 
 
-obj = MyList([1, 2, 3])
-print(obj[1])      # Output: 2 (getitem)
-obj[1] = 10        # Modifies index 1
-print(obj)         # Output: [1, 10, 3]
-obj.append(4)      # Appends 4
-print(len(obj))    # Output: 4
-print(10 in obj)   # Output: True
-for i in obj:
-    print(i)       # Output: 1, 10, 3, 4
+if __name__ == "__main__":
+    obj = MyList([1, 2, 3])
+    print(obj[1])      # Output: 2 (getitem)
+    obj[1] = 10        # Modifies index 1
+    print(obj)         # Output: [1, 10, 3]
+    obj.append(4)      # Appends 4
+    print(len(obj))    # Output: 4
+    print(10 in obj)   # Output: True
+    for i in obj:
+        print(i)       # Output: 1, 10, 3, 4
 

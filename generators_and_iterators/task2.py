@@ -4,5 +4,6 @@ def in_range(start, end, step=1):
         start += step
 
 
-print(list(in_range(1, 10, 3)))
+if __name__ == '__main__':
+    print(list(in_range(1, 10, 3)))
 
