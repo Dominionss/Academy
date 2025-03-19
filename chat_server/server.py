@@ -20,7 +20,11 @@ async def broadcast_message(message):
     # enumerate all users and broadcast the message
     global ALL_USERS
     # create a task for each write to client
-    tasks = [asyncio.create_task(write_message(w, msg_bytes)) for _, (_, w) in ALL_USERS.items()]
+    tasks = []
+    for user in ALL_USERS:
+        _, w = ALL_USERS[user]  # Unpack the tuple to get the writer
+        task = asyncio.create_task(write_message(w, msg_bytes))
+        tasks.append(task)
     # wait for all writes to complete
     _ = await asyncio.wait(tasks)
 
@@ -59,25 +63,6 @@ async def disconnect_user(name, writer):
     await broadcast_message(f'{name} has disconnected\n')
 
 
-async def send_message(user, message):
-    # enumerate all users and broadcast the message
-    global ALL_USERS
-
-    if user not in ALL_USERS:
-        print("This user isn't exist!")
-        return
-
-    # report locally
-    print(f'pm to user: {user} --- {message.strip()}')
-    # convert to bytes
-    msg_bytes = message.encode()
-
-    # create a task for each write to client
-    tasks = [asyncio.create_task(write_message(w, msg_bytes)) for _, (_, w) in [(user, ALL_USERS[user])]]
-    # wait for all writes to complete
-    _ = await asyncio.wait(tasks)
-
-
 # handle a chat client
 async def handle_chat_client(reader, writer):
     print('Client connecting...')
@@ -93,12 +78,8 @@ async def handle_chat_client(reader, writer):
             # check for exit
             if message == 'QUIT':
                 break
-            if message.lower().startswith('pm:'):
-                cmd, username, msg = message.split(':')
-                await send_message(username, msg)
-            # broadcast message
-            else:
-                await broadcast_message(f'{name}: {message}\n')
+
+            await broadcast_message(f'{name}: {message}\n')
     finally:
         # disconnect the user
         await disconnect_user(name, writer)
