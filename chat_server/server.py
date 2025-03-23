@@ -1,105 +1,94 @@
-# SuperFastPython.com
-# example of a chat server using streams
 import asyncio
 
+ADMIN_NAME = 'user123'
+clients = {}
 
-# write a message to a stream writer
-async def write_message(writer, msg_bytes):
-    # write message to this user
-    writer.write(msg_bytes)
-    # wait for the buffer to empty
+
+async def broadcast(message, sender=None):
+    for name, writer in clients.items():
+        if name != sender:
+            writer.write(f'{message}\n'.encode())
+            await writer.drain()
+
+
+async def private_message(sender, recipient, message):
+    if recipient in clients:
+        clients[recipient].write(f'[PM from {sender}]: {message}\n'.encode())
+        await clients[recipient].drain()
+    else:
+        clients[sender].write(f'User {recipient} not found.\n'.encode())
+        await clients[sender].drain()
+
+
+async def handle_client(reader, writer):
+    addr = writer.get_extra_info('peername')
+
     await writer.drain()
+    name = (await reader.read(100)).decode().strip()
 
+    if name in clients:
+        writer.write(b'Name already taken. Disconnecting.\n')
+        await writer.drain()
+        writer.close()
+        await writer.wait_closed()
+        return
 
-# send a message to all connected users
-async def broadcast_message(message):
-    # report locally
-    print(f'Broadcast: {message.strip()}')
-    # convert to bytes
-    msg_bytes = message.encode()
-    # enumerate all users and broadcast the message
-    global ALL_USERS
-    # create a task for each write to client
-    tasks = []
-    for user in ALL_USERS:
-        _, w = ALL_USERS[user]  # Unpack the tuple to get the writer
-        task = asyncio.create_task(write_message(w, msg_bytes))
-        tasks.append(task)
-    # wait for all writes to complete
-    _ = await asyncio.wait(tasks)
+    clients[name] = writer
+    print(f'{name} connected from {addr}')
+    await broadcast(f'{name} joined the chat.')
 
-
-# connect a user
-async def connect_user(reader, writer):
-    # get name message
-    writer.write('Asycio Chat Server\n'.encode())
-    writer.write('Enter your name:\n'.encode())
-    await writer.drain()
-    # ask the user for their name
-    name_bytes = await reader.readline()
-    # convert name to string
-    name = name_bytes.decode().strip()
-    # store the user details
-    global ALL_USERS
-    ALL_USERS[name] = (reader, writer)
-    # announce the user
-    await broadcast_message(f'{name} has connected\n')
-    # welcome message
-    welcome = f'Welcome {name}. Send QUIT to disconnect.\n'
-    writer.write(welcome.encode())
-    await writer.drain()
-    return name
-
-
-# disconnect a user
-async def disconnect_user(name, writer):
-    # close the user's connection
-    writer.close()
-    await writer.wait_closed()
-    # remove from the dict of all users
-    global ALL_USERS
-    del ALL_USERS[name]
-    # broadcast the user has left
-    await broadcast_message(f'{name} has disconnected\n')
-
-
-# handle a chat client
-async def handle_chat_client(reader, writer):
-    print('Client connecting...')
-    # connect the user
-    name = await connect_user(reader, writer)
     try:
-        # read messages from the user
         while True:
-            # read a message of data
-            line_bytes = await reader.readline()
-            # convert to string
-            message = line_bytes.decode().strip()
-            # check for exit
-            if message == 'QUIT':
+            data = await reader.read(1024)
+            if not data:
                 break
 
-            await broadcast_message(f'{name}: {message}\n')
+            message = data.decode().strip()
+
+            if message == 'QUIT':
+                await broadcast(f'{name} left the chat.')
+                break
+
+            elif message.startswith('pm:'):
+                try:
+                    _, recipient, msg = message.split(':', 2)
+                    await private_message(name, recipient, msg)
+                except ValueError:
+                    writer.write(b'Invalid private message format. Use pm:recipient:message\n')
+                    await writer.drain()
+
+            elif name == ADMIN_NAME and message.startswith('kick:'):
+                _, target_name = message.split(':', 1)
+                if target_name in clients and target_name != ADMIN_NAME:
+                    clients[target_name].write(b'You have been kicked by the admin.\n')
+                    await clients[target_name].drain()
+                    clients[target_name].close()
+                    await clients[target_name].wait_closed()
+                    del clients[target_name]
+                    await broadcast(f'{target_name} has been kicked by the admin.')
+                else:
+                    writer.write(b'Cannot kick this user.\n')
+                    await writer.drain()
+            else:
+                await broadcast(f'{name}: {message}', sender=name)
+
+    except Exception as e:
+        print(f'Error: {e}')
     finally:
-        # disconnect the user
-        await disconnect_user(name, writer)
+        if name in clients:
+            del clients[name]
+            writer.close()
+            await writer.wait_closed()
+            print(f'{name} disconnected.')
 
 
-# chat server
 async def main():
-    # define the local host
-    host_address, host_port = '127.0.0.1', 8888
-    # create the server
-    server = await asyncio.start_server(handle_chat_client, host_address, host_port)
-    # run the server
+    server = await asyncio.start_server(handle_client, '127.0.0.1', 8888)
+    print('Server started on 127.0.0.1:8888')
+
     async with server:
-        # report message
-        print('Chat Server Running\nWaiting for chat clients...')
-        # accept connections
         await server.serve_forever()
 
 
-# dict of all current users
-ALL_USERS = {}
-# start the event loop
-asyncio.run(main())
+if __name__ == '__main__':
+    asyncio.run(main())

@@ -1,5 +1,3 @@
-# SuperFastPython.com
-# example of a chat client using streams
 import sys
 import asyncio
 
@@ -7,6 +5,10 @@ import asyncio
 # send message to server
 async def write_messages(writer):
     # read messages from the user and transmit to server
+    name = input("Enter your name: ")
+    writer.write(name.encode() + b'\n')
+    await writer.drain()
+
     while True:
         # read from stdin
         message = await asyncio.to_thread(sys.stdin.readline)
