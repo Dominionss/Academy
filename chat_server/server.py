@@ -1,5 +1,6 @@
 import asyncio
 
+
 ADMIN_NAME = 'user123'
 clients = {}
 
@@ -60,12 +61,20 @@ async def handle_client(reader, writer):
             elif name == ADMIN_NAME and message.startswith('kick:'):
                 _, target_name = message.split(':', 1)
                 if target_name in clients and target_name != ADMIN_NAME:
-                    clients[target_name].write(b'You have been kicked by the admin.\n')
-                    await clients[target_name].drain()
-                    clients[target_name].close()
-                    await clients[target_name].wait_closed()
-                    del clients[target_name]
-                    await broadcast(f'{target_name} has been kicked by the admin.')
+                    try:
+                        clients[target_name].write(b'You have been kicked by the admin.\n')
+                        await clients[target_name].drain()
+                    except Exception as e:
+                        print(f"Error sending kick message: {e}")
+
+                    try:
+                        clients[target_name].close()
+                        await clients[target_name].wait_closed()
+                    except Exception as e:
+                        print(f"Error closing connection: {e}")
+                    if target_name in clients:
+                        del clients[target_name]
+                        await broadcast(f'{target_name} has been kicked by the admin.')
                 else:
                     writer.write(b'Cannot kick this user.\n')
                     await writer.drain()

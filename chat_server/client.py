@@ -4,8 +4,9 @@ import asyncio
 
 # send message to server
 async def write_messages(writer):
-    # read messages from the user and transmit to server
+    # enter the name
     name = input("Enter your name: ")
+    # read messages from the user and transmit to server
     writer.write(name.encode() + b'\n')
     await writer.drain()
 
@@ -36,6 +37,9 @@ async def read_messages(reader):
         response = result_bytes.decode()
         # report the response to the user
         print(response.strip())
+        # check if there is any data, if not, then disconnect
+        if not result_bytes:
+            break
 
 
 # echo client
